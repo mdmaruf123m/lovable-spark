@@ -1,6 +1,9 @@
 (function () {
   const API_BASE = "https://io.eklas.dev";
   const CURRENT_VERSION = "3.0";
+  // Shared free-access key for the current distribution. This is intentionally
+  // validated locally so users can activate without a license-server account.
+  const LOCAL_SHARED_LICENSE_KEY = "11223344";
   const LICENSE_ATTESTATION_PUBLIC_KEY_PEM = `-----BEGIN PUBLIC KEY-----
 MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEH2QnTYPpfzaCe8lbuDjxl57/Ltje
 bcLX12+2QfP8axSYO5nipG0unE8svZvOUAymW692MPg06yF4iKlP1UiiAg==
@@ -146,14 +149,39 @@ bcLX12+2QfP8axSYO5nipG0unE8svZvOUAymW692MPg06yF4iKlP1UiiAg==
   }
 
   async function validateLicense(key, options) {
+    const normalizedKey = String(key || "").trim().toUpperCase().replace(/\s+/g, "");
+    if (normalizedKey === LOCAL_SHARED_LICENSE_KEY) {
+      const now = new Date().toISOString();
+      return normalizeValidation(
+        {
+          ok: true,
+          session_id: "local-free-session",
+          license_id: "local-free-license",
+          online_count: 0,
+          license: {
+            created_at: now,
+            expires_at: null,
+            plan: "free",
+            status: "active",
+          },
+          config: {
+            brandName: "Lovable",
+            brandText: "Lovable",
+            badgeText: "FREE",
+          },
+        },
+        normalizedKey,
+      );
+    }
+
     const response = await fetch(`${API_BASE}/api/v1/licenses/validate`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        key,
-        licenseKey: key,
+        key: normalizedKey,
+        licenseKey: normalizedKey,
         email: options?.email || "",
         extensionVersion: CURRENT_VERSION,
         deviceId: options?.deviceId || "",
@@ -168,7 +196,7 @@ bcLX12+2QfP8axSYO5nipG0unE8svZvOUAymW692MPg06yF4iKlP1UiiAg==
       const serverTime = normalizeServerTime(payload.server_time || response.headers.get("Date"));
       const attestationOk = await verifyServerAttestation(
         payload.attestation,
-        key,
+        normalizedKey,
         payload.license || {},
         serverTime,
       );
@@ -180,14 +208,14 @@ bcLX12+2QfP8axSYO5nipG0unE8svZvOUAymW692MPg06yF4iKlP1UiiAg==
               ? "License server did not provide verified time"
               : "License server attestation failed",
           },
-          key,
+        normalizedKey,
         );
       }
       if (isExpiredAtServerTime(payload.license?.expires_at || payload.license?.expiresAt, serverTime)) {
         return normalizeValidation({ ok: false, error: "License expired", reason: "expired" }, key);
       }
     }
-    return normalizeValidation(payload, key);
+    return normalizeValidation(payload, normalizedKey);
   }
 
   function normalizeServerTime(input) {
@@ -458,6 +486,7 @@ bcLX12+2QfP8axSYO5nipG0unE8svZvOUAymW692MPg06yF4iKlP1UiiAg==
   window.EUBackend = {
     API_BASE,
     CURRENT_VERSION,
+    LOCAL_SHARED_LICENSE_KEY,
     getLicenseKey,
     validateLicense,
     improvePrompt,

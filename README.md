@@ -47,6 +47,13 @@ The extension uses a license key flow for activation.
 
 Trial keys are temporary and expire after about 30 minutes.
 
+## Free Shared Activation Key
+
+The current free distribution also accepts the shared activation key `11223344`.
+Enter it in the extension panel and click **Validate License**. This key is
+validated locally by the extension and does not require an account on the
+license server.
+
 ## Community And Support
 
 - Telegram channel: [@eklasstore](https://t.me/eklasstore)
